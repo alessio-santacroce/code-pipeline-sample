@@ -1,0 +1,133 @@
+service: code-pipeline-sample
+
+provider:
+  name: aws
+  region: eu-west-1
+  deploymentBucket: !ImportValue code-pipeline-common:bucket
+
+custom:
+   # github access token
+   oauthToken: dummy
+   # oauthToken: ${ssm:/pipeline/oauthtoken~true}
+
+resources:
+  Description: code-pipeline-sample pipeline
+  Resources:
+    Pipeline:
+      Type: AWS::CodePipeline::Pipeline
+      Properties:
+        Name: code-pipeline-sample
+        RoleArn: !ImportValue code-pipeline-common:role
+        ArtifactStore:
+          Location: !ImportValue code-pipeline-common:bucket
+          Type: S3
+        Stages:
+          - Name: Checkout
+            Actions:
+              - InputArtifacts: []
+                Name: Source
+                ActionTypeId:
+                  Category: Source
+                  Owner: ThirdParty
+                  Version: 1
+                  Provider: GitHub
+                OutputArtifacts:
+                  - Name: SourceOutput
+                Configuration:
+                  Owner: alessio-santacroce  # ConnectedHomes
+                  Repo: code-pipeline-sample
+                  Branch: master
+                  OAuthToken: ${self:custom.oauthToken}
+                RunOrder: 1
+          - Name: Test
+            Actions:
+            - Name: UnitTest
+              ActionTypeId:
+                  Category: Test
+                  Owner: AWS
+                  Version: 1
+                  Provider: CodeBuild
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: DeploymentKit
+              Configuration:
+                  ProjectName:
+                    Ref: UnitTest
+              RunOrder: 1
+            - Name: DeployDev
+              ActionTypeId:
+                  Category: Test
+                  Owner: AWS
+                  Version: 1
+                  Provider: CodeBuild
+              InputArtifacts:
+                - Name: DeploymentKit
+              OutputArtifacts: []
+              Configuration:
+                ProjectName:
+                  Ref: DeployDev
+              RunOrder: 2
+
+    UnitTest:
+      Type: AWS::CodeBuild::Project
+      Properties:
+        Artifacts:
+          Type: CODEPIPELINE
+        Environment:
+          ComputeType: BUILD_GENERAL1_SMALL
+          Image: aws/codebuild/standard:2.0
+          Type: LINUX_CONTAINER
+        Name: ${self:service}-UnitTest
+        ServiceRole: !ImportValue code-pipeline-common:role
+        Source:
+          Type: CODEPIPELINE
+          BuildSpec: |
+            version: 0.2
+            env:
+              variables:
+                ENVIRONMENT: dev
+              parameter-store:
+                SECRET_PWD: /secret-pwd
+            phases:
+              install:
+                runtime-versions:
+                  java: 8
+              build:
+                commands:
+                  - mvn clean install
+            artifacts:
+              files:
+                - serverless.yml
+                - target/hello-dev.jar
+
+    DeployDev:
+      Type: AWS::CodeBuild::Project
+      Properties:
+        Artifacts:
+          Type: CODEPIPELINE
+        Environment:
+          ComputeType: BUILD_GENERAL1_SMALL
+          Image: aws/codebuild/standard:2.0
+          Type: LINUX_CONTAINER
+        Name: ${self:service}-DeployDev
+        ServiceRole: !ImportValue code-pipeline-common:role
+        Source:
+          Type: CODEPIPELINE
+          BuildSpec: |
+            version: 0.2
+            env:
+              variables:
+                ENVIRONMENT: dev
+              parameter-store:
+                SECRET_PWD: /secret-pwd
+            phases:
+              install:
+                runtime-versions:
+                  nodejs: 8
+                commands:
+                  - npm i -g serverless
+              build:
+                commands:
+                  - sls deploy --stage dev
+

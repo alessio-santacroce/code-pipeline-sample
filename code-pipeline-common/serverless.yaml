@@ -1,0 +1,53 @@
+service: code-pipeline-common
+
+provider:
+  name: aws
+  region: eu-west-1
+
+resources:
+  Description: code pipeline common account resources
+
+  Resources:
+
+    S3Bucket:
+      Type: AWS::S3::Bucket
+      DeletionPolicy: Delete
+      Properties:
+        BucketName: code-pipeline-hiveleak-dev
+
+    IamRole:
+      Type: AWS::IAM::Role
+      Properties:
+#        RoleName: ${self:custom.deviceDirectRoleName}
+#        MaxSessionDuration: 43200  # 12h
+        Path: "/"
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Sid: AssumeRole
+              Effect: Allow
+              Principal:
+                Service:
+                  - codepipeline.amazonaws.com
+#                  - cloudformation.amazonaws.com
+                  - codebuild.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: AdminPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Sid: admin
+                  Effect: Allow
+                  Action: "*"
+                  Resource: "*"
+
+  Outputs:
+    CodePipelineBucket:
+      Value: !Ref S3Bucket
+      Export:
+        Name: ${self:service}:bucket
+    CodePipelineRole:
+      Value: !GetAtt IamRole.Arn
+      Export:
+        Name: ${self:service}:role
