@@ -3,6 +3,8 @@ service: hello-sample
 provider:
   name: aws
   runtime: java8
+  region: eu-west-1
+  deploymentBucket: !ImportValue code-pipeline-common:bucket
 
 package:
   artifact: target/hello-dev.jar

@@ -6,9 +6,8 @@ provider:
   deploymentBucket: !ImportValue code-pipeline-common:bucket
 
 custom:
-   # github access token
-   oauthToken: dummy
-   # oauthToken: ${ssm:/pipeline/oauthtoken~true}
+  # github access token
+  oauthToken: ${ssm:/pipeline/oauthtoken~true}
 
 resources:
   Description: code-pipeline-sample pipeline
@@ -87,12 +86,10 @@ resources:
             env:
               variables:
                 ENVIRONMENT: dev
-              parameter-store:
-                SECRET_PWD: /secret-pwd
             phases:
               install:
                 runtime-versions:
-                  java: 8
+                  java: openjdk8
               build:
                 commands:
                   - mvn clean install
@@ -119,8 +116,6 @@ resources:
             env:
               variables:
                 ENVIRONMENT: dev
-              parameter-store:
-                SECRET_PWD: /secret-pwd
             phases:
               install:
                 runtime-versions:
